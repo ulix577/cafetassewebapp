@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 
 ./build.sh release
 
-OUT=.build/plugins/PackageToJS/outputs/Package
+OUT="${CAFETASSE_BUILD_DIR:-$HOME/Library/Caches/CafeTasseWeb}/Package"  # same default as build.sh
 DEST=../docs
 rm -rf "$DEST"
 mkdir -p "$DEST/app"

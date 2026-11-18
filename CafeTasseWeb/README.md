@@ -5,7 +5,8 @@ Reduced web version of CafeTasse, written in Swift and compiled to WebAssembly w
 through the `../CafeTasseCore` package.
 
 **Features**
-- Café list and "add café" form (guests enter the café data themselves)
+- Café list and "add café" form (guests enter the café data themselves); the café location comes from
+  the guest's position ("I'm here now") or from the typed address (lookup on button tap)
 - Café detail with check-in (distance check via browser geolocation) and photo (camera or library)
 - Visit history; swipe-to-delete is enabled per café only once it has at least 10 visits
 
@@ -17,17 +18,21 @@ Needs the swift.org 6.4.2 toolchain (via swiftly) and the matching Wasm SDK
 (`swift sdk list` should show `swift-6.4.2-RELEASE_wasm`).
 
 ```sh
-./build.sh          # debug build (large .wasm)
-./build.sh release  # optimized build
+./build.sh release  # or: ./build.sh debug (much larger .wasm)
 ```
 
-The bundle is written to `.build/plugins/PackageToJS/outputs/Package/`. The build uses `--use-cdn`,
-so the browser loads the WASI shim from jsDelivr at runtime (internet needed on first load).
+Build files go to `~/Library/Caches/CafeTasseWeb` (set `CAFETASSE_BUILD_DIR` to change), not into this
+folder. Reason: inside an iCloud-synced folder such as `~/Documents`, iCloud creates `name 2.swift`
+conflict copies in `.build` and the build breaks with "ambiguous for type lookup" errors.
 
-## Run
+The build uses `--use-cdn`, so the browser loads the WASI shim from jsDelivr at runtime
+(internet needed on first load).
+
+## Run locally
 
 ```sh
-python3 -m http.server 8000
+./make-dist.sh                # builds and writes ../docs
+cd ../docs && python3 -m http.server 8000
 # open http://localhost:8000
 ```
 
@@ -57,6 +62,11 @@ Then open the HTTPS URL in Chrome on Android (or Safari on iPhone). Make sure th
   `.wasm` is about 18 MB (4.8 MB gzipped) instead of about 60 MB. Keep it that way: `trimmingCharacters`,
   `replacingOccurrences`, `range(of:)`, `LocalizedError` and `DateFormatter` are not available there.
   Serve the `.wasm` with gzip or brotli compression.
+- "Find location from address" calls OpenStreetMap's Nominatim service
+  (https://operations.osmfoundation.org/policies/nominatim/). It runs only when the user taps the button,
+  never automatically, to respect the usage policy (about 1 request per second, no bulk use). The
+  address is sent to that service; the UI says so. The result parsing lives in `CafeTasseCore`
+  (`GeocodingResponse`) and is unit tested.
 - UI text is English only.
 - Source layout: `DOM.swift` (DOM helpers), `Browser.swift` (geolocation, photo resizing),
   `Store.swift` (IndexedDB), `App.swift` (state, routing), `Screens.swift` (screens),

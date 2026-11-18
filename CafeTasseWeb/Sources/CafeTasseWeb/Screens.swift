@@ -59,13 +59,49 @@ extension App {
 
         let addressInput = el("input")
         addressInput.attr("type", "text")
-        addressInput.attr("placeholder", "Address (optional)")
+        addressInput.attr("placeholder", "Street, number, city")
 
         let locationCheckbox = el("input")
         locationCheckbox.attr("type", "checkbox")
         locationCheckbox.checked = .boolean(true)
         let locationLabel = el("label", "checkbox", [locationCheckbox,
             el("span", text: "I'm here now — save my location as the café's location")])
+
+        // Location from the typed address (only on tap, see `geocode(address:)`).
+        var foundPlace: GeocodedPlace?
+        let lookupButton = el("button", "secondary", text: "Find location from address")
+        let lookupResult = el("p", "hint")
+        lookupButton.on("click") { _ in
+            let address = trimmed(addressInput.value.string ?? "")
+            guard !address.isEmpty else {
+                showNotice("Please type an address first.", isError: true)
+                return
+            }
+            lookupButton.disabled = .boolean(true)
+            lookupButton.textContent = .string("Searching…")
+            Task {
+                do {
+                    let place = try await geocode(address: address)
+                    foundPlace = place
+                    // The found address replaces "I'm here now" so the two sources don't compete.
+                    locationCheckbox.checked = .boolean(false)
+                    lookupResult.textContent = .string("Found: \(place.displayName)")
+                } catch {
+                    foundPlace = nil
+                    lookupResult.textContent = .string("")
+                    showNotice(describe(error), isError: true)
+                }
+                lookupButton.disabled = .boolean(false)
+                lookupButton.textContent = .string("Find location from address")
+            }
+        }
+        // A changed address makes an earlier result stale.
+        addressInput.on("input") { _ in
+            foundPlace = nil
+            lookupResult.textContent = .string("")
+        }
+        let lookupNote = el("p", "hint",
+            text: "The address is sent to OpenStreetMap (Nominatim) to find its position.")
 
         let saveButton = el("button", "primary", text: "Save café")
         saveButton.on("click") { _ in
@@ -82,6 +118,10 @@ extension App {
             saveButton.textContent = .string(wantsLocation ? "Locating…" : "Saving…")
             Task {
                 var restaurant = RestaurantDTO(typ: type, name: name, adress: address)
+                if !wantsLocation, let place = foundPlace {
+                    restaurant.latitude = place.coordinate.latitude
+                    restaurant.longitude = place.coordinate.longitude
+                }
                 if wantsLocation {
                     do {
                         let position = try await currentPosition()
@@ -100,6 +140,7 @@ extension App {
             el("label", text: "Name"), nameInput,
             el("label", text: "Type"), typeSelect,
             el("label", text: "Address"), addressInput,
+            lookupButton, lookupResult, lookupNote,
             locationLabel,
             saveButton
         ])
@@ -146,6 +187,29 @@ extension App {
                 }
             }
             _ = screen.appendChild!(setLocation)
+
+            if !trimmed(restaurant.adress).isEmpty {
+                let lookup = el("button", "secondary", text: "Find location from address")
+                lookup.on("click") { _ in
+                    lookup.disabled = .boolean(true)
+                    lookup.textContent = .string("Searching…")
+                    Task {
+                        do {
+                            let place = try await geocode(address: restaurant.adress)
+                            if confirmInBrowser("Found:\n\(place.displayName)\n\nUse this as the café's location?") {
+                                var updated = restaurant
+                                updated.latitude = place.coordinate.latitude
+                                updated.longitude = place.coordinate.longitude
+                                await self.persist(updated)
+                            }
+                        } catch {
+                            showNotice(describe(error), isError: true)
+                        }
+                        self.render()
+                    }
+                }
+                _ = screen.appendChild!(lookup)
+            }
         }
 
         // Visits

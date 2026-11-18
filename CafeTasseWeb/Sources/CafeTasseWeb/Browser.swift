@@ -10,12 +10,16 @@ enum BrowserError: Error, CustomStringConvertible {
     case geolocationUnavailable
     case locationDenied(String)
     case imageFailed
+    case addressNotFound
+    case geocodingFailed(String)
 
     var description: String {
         switch self {
         case .geolocationUnavailable: return "This browser has no location support."
         case .locationDenied(let reason): return "Location unavailable: \(reason)"
         case .imageFailed: return "The photo could not be read."
+        case .addressNotFound: return "No place found for this address. Check the spelling or add the city."
+        case .geocodingFailed(let reason): return "Address lookup failed: \(reason)"
         }
     }
 }
@@ -103,4 +107,30 @@ func makeImageInput(useCamera: Bool, onFile: @escaping (JSObject) -> Void) -> JS
         input.value = .string("")
     }
     return input
+}
+
+/// Looks an address up with OpenStreetMap's Nominatim service (https://operations.osmfoundation.org/policies/nominatim/).
+/// Only call this from a user action (button tap): the policy allows about one request per second
+/// and forbids automatic or bulk lookups. The address is sent to that service.
+func geocode(address: String) async throws -> GeocodedPlace {
+    let query = JSObject.global.encodeURIComponent!(address).string ?? ""
+    let url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=\(query)"
+
+    let text: String
+    do {
+        let response = try await JSPromise(JSObject.global.fetch!(url).object!)!.value.object!
+        guard response.ok.boolean == true else {
+            throw BrowserError.geocodingFailed("server answered \(Int(response.status.number ?? 0))")
+        }
+        text = try await JSPromise(response.text!().object!)!.value.string ?? ""
+    } catch let error as BrowserError {
+        throw error
+    } catch {
+        throw BrowserError.geocodingFailed("no connection to the lookup service")
+    }
+
+    guard let place = GeocodingResponse.firstPlace(in: Data(text.utf8)) else {
+        throw BrowserError.addressNotFound
+    }
+    return place
 }

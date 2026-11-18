@@ -142,3 +142,43 @@ struct ModelTests {
         #expect([VisitDTO]().averageRating == 0)
     }
 }
+
+@Suite("GeocodingResponse")
+struct GeocodingResponseTests {
+    private func parse(_ json: String) -> GeocodedPlace? {
+        GeocodingResponse.firstPlace(in: Data(json.utf8))
+    }
+
+    @Test func parsesNominatimResult() {
+        let place = parse("""
+        [{"place_id":1,"lat":"52.5170365","lon":"13.3888599","display_name":"Brandenburger Tor, Berlin, Deutschland"}]
+        """)
+        #expect(place?.coordinate == Coordinate(latitude: 52.5170365, longitude: 13.3888599))
+        #expect(place?.displayName == "Brandenburger Tor, Berlin, Deutschland")
+    }
+
+    @Test func emptyResultIsNil() {
+        #expect(parse("[]") == nil)
+    }
+
+    @Test func malformedJSONIsNil() {
+        #expect(parse("not json") == nil)
+        #expect(parse("{\"error\":\"rate limited\"}") == nil)
+        #expect(parse("") == nil)
+    }
+
+    @Test func skipsUnusableEntriesAndTakesNextValidOne() {
+        let place = parse("""
+        [{"lat":"abc","lon":"1","display_name":"bad"},
+         {"lat":"91","lon":"0","display_name":"out of range"},
+         {"lat":"48.1","lon":"11.5","display_name":"München"}]
+        """)
+        #expect(place?.displayName == "München")
+    }
+
+    @Test func missingDisplayNameBecomesEmpty() {
+        let place = parse("[{\"lat\":\"1.5\",\"lon\":\"-2.5\"}]")
+        #expect(place?.coordinate == Coordinate(latitude: 1.5, longitude: -2.5))
+        #expect(place?.displayName == "")
+    }
+}
