@@ -9,7 +9,9 @@ import JavaScriptKit
 enum BrowserError: Error, CustomStringConvertible {
     case geolocationUnavailable
     case locationDenied(String)
-    case imageFailed
+    case cameraUnavailable
+    case cameraDenied
+    case noCamera
     case addressNotFound
     case geocodingFailed(String)
 
@@ -17,7 +19,9 @@ enum BrowserError: Error, CustomStringConvertible {
         switch self {
         case .geolocationUnavailable: return "This browser has no location support."
         case .locationDenied(let reason): return "Location unavailable: \(reason)"
-        case .imageFailed: return "The photo could not be read."
+        case .cameraUnavailable: return "This browser cannot open the camera. Open the page in Chrome (Android) or Safari (iPhone)."
+        case .cameraDenied: return "Camera access was denied. Allow the camera for this site in the browser settings, then try again."
+        case .noCamera: return "No camera found on this device."
         case .addressNotFound: return "No place found for this address. Check the spelling or add the city."
         case .geocodingFailed(let reason): return "Address lookup failed: \(reason)"
         }
@@ -67,60 +71,74 @@ func currentFix() async throws -> UserPosition {
     }
 }
 
-/// Reads an image `File`, scales it so the longer side is at most `maxSide` pixels and returns a
-/// base64-encoded JPEG (without the data-URL prefix), matching `Visit.photoDataBase64` on iOS.
-func resizedJPEGBase64(from file: JSObject, maxSide: Double = 1280, quality: Double = 0.8) async throws -> String {
-    try await withCheckedThrowingContinuation { continuation in
-        let urlObject = JSObject.global.URL.object!
-        let objectURL = urlObject.createObjectURL!(file)
-        let image = JSObject.global.Image.function!.new()
+/// Opens a full-screen live camera view and returns the captured photo as a base64-encoded JPEG
+/// (without data-URL prefix), scaled so the longer side is at most `maxSide` pixels. Returns nil if the
+/// user cancels. There is deliberately no file or gallery fallback: the photo must be taken right now.
+/// Needs HTTPS or localhost plus camera permission.
+func captureLivePhoto(maxSide: Double = 1280, quality: Double = 0.8) async throws -> String? {
+    guard let mediaDevices = JSObject.global.navigator.object?.mediaDevices.object else {
+        throw BrowserError.cameraUnavailable
+    }
+    let constraints = JSObject.global.JSON.object!.parse!(
+        #"{"video":{"facingMode":{"ideal":"environment"}},"audio":false}"#)
 
-        image.onload = .object(JSOneshotClosure { _ in
-            let width = image.naturalWidth.number ?? 0
-            let height = image.naturalHeight.number ?? 0
-            let scale = min(1, maxSide / max(width, height, 1))
+    let stream: JSObject
+    do {
+        stream = try await JSPromise(mediaDevices.getUserMedia!(constraints).object!)!.value.object!
+    } catch {
+        switch error.thrownValue.object?.name.string {
+        case "NotFoundError", "OverconstrainedError": throw BrowserError.noCamera
+        default: throw BrowserError.cameraDenied
+        }
+    }
 
+    let video = el("video", "camera-video")
+    video.attr("playsinline", "")
+    video.attr("autoplay", "")
+    video.muted = .boolean(true)
+    video.srcObject = .object(stream)
+    _ = video.play!()
+
+    let shutter = el("button", "shutter")
+    shutter.attr("aria-label", "Take photo")
+    let cancel = el("button", "camera-cancel", text: "Cancel")
+    let controls = el("div", "camera-controls", [cancel, shutter, el("span", "camera-spacer")])
+    let overlay = el("div", "camera-overlay", [video, controls])
+    _ = document.body.object!.appendChild!(overlay)
+
+    return await withCheckedContinuation { continuation in
+        var isFinished = false
+        func finish(_ result: String?) {
+            guard !isFinished else { return }
+            isFinished = true
+            if let tracks = JSArray(stream.getTracks!().object!) {
+                for track in tracks { _ = track.object?.stop!() }
+            }
+            _ = overlay.remove!()
+            continuation.resume(returning: result)
+        }
+
+        cancel.on("click") { _ in finish(nil) }
+        shutter.on("click") { _ in
+            let width = video.videoWidth.number ?? 0
+            let height = video.videoHeight.number ?? 0
+            guard width > 0, height > 0 else { return }   // camera not ready yet
+
+            let scale = min(1, maxSide / max(width, height))
             let canvas = document.createElement!("canvas").object!
             canvas.width = .number((width * scale).rounded())
             canvas.height = .number((height * scale).rounded())
-            let context = canvas.getContext!("2d").object!
-            _ = context.drawImage!(image, 0, 0, canvas.width, canvas.height)
-
-            let dataURL = canvas.toDataURL!("image/jpeg", quality).string ?? ""
-            _ = urlObject.revokeObjectURL!(objectURL)
+            _ = canvas.getContext!("2d").object!.drawImage!(video, 0, 0, canvas.width, canvas.height)
 
             // dataURL looks like "data:image/jpeg;base64,<payload>"
+            let dataURL = canvas.toDataURL!("image/jpeg", quality).string ?? ""
             if let comma = dataURL.firstIndex(of: ",") {
-                continuation.resume(returning: String(dataURL[dataURL.index(after: comma)...]))
+                finish(String(dataURL[dataURL.index(after: comma)...]))
             } else {
-                continuation.resume(throwing: BrowserError.imageFailed)
+                finish(nil)
             }
-            return .undefined
-        })
-        image.onerror = .object(JSOneshotClosure { _ in
-            _ = urlObject.revokeObjectURL!(objectURL)
-            continuation.resume(throwing: BrowserError.imageFailed)
-            return .undefined
-        })
-        image.src = objectURL
-    }
-}
-
-/// Builds a hidden `<input type="file">` and calls `onFile` with the chosen image.
-/// With `useCamera` phones open the camera directly; desktops show the file picker.
-func makeImageInput(useCamera: Bool, onFile: @escaping (JSObject) -> Void) -> JSObject {
-    let input = el("input")
-    input.attr("type", "file")
-    input.attr("accept", "image/*")
-    if useCamera { input.attr("capture", "environment") }
-    input.setStyle("display", "none")
-    input.on("change") { _ in
-        if let file = input.files.object?[0].object {
-            onFile(file)
         }
-        input.value = .string("")
     }
-    return input
 }
 
 /// Looks an address up with OpenStreetMap's Nominatim service (https://operations.osmfoundation.org/policies/nominatim/).

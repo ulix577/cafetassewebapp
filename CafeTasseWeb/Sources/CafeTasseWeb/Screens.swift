@@ -267,21 +267,23 @@ extension App {
         }
         refreshPreview()
 
-        let handleFile: (JSObject) -> Void = { file in
+        // Live camera only: no file or gallery picker, so every photo is taken during the visit.
+        let takePhoto = el("button", "secondary", text: "Take photo")
+        takePhoto.on("click") { _ in
+            takePhoto.disabled = .boolean(true)
             Task {
                 do {
-                    self.draft.photoBase64 = try await resizedJPEGBase64(from: file)
-                    refreshPreview()
+                    if let photo = try await captureLivePhoto() {
+                        self.draft.photoBase64 = photo
+                        refreshPreview()
+                    }
                 } catch {
                     showNotice(describe(error), isError: true)
                 }
+                takePhoto.disabled = .boolean(false)
             }
         }
-        // Camera only: no "choose from library" option, so every photo is taken during the visit.
-        let cameraInput = makeImageInput(useCamera: true, onFile: handleFile)
-        let takePhoto = el("button", "secondary", text: "Take photo")
-        takePhoto.on("click") { _ in _ = cameraInput.click!() }
-        let photoButtons = el("div", "button-row", [takePhoto, cameraInput])
+        let photoButtons = el("div", "button-row", [takePhoto])
 
         // Rating
         let ratingRow = el("div", "rating")

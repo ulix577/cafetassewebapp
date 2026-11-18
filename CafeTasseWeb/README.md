@@ -7,7 +7,7 @@ through the `../CafeTasseCore` package.
 **Features**
 - Café list and "add café" form (guests enter the café data themselves); the café location comes from
   the guest's position ("I'm here now") or from the typed address (lookup on button tap)
-- Café detail with check-in (distance check via browser geolocation) and photo (taken with the camera; no library picker)
+- Café detail with check-in (distance check via browser geolocation) and photo (live in-page camera only: no file or gallery picker)
 - Visit history; swipe-to-delete is enabled per café only once it has at least 10 visits
 
 All data stays in the browser (IndexedDB). There is no server and no sync with the iOS app.
