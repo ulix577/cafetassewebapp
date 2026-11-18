@@ -8,7 +8,7 @@ import JavaScriptKit
 
 extension App {
 
-    /// Explains the 10-visits bonus; shown on the café list and the history page.
+    /// Explains the 10-visits bonus; shown on the café detail page (above the visits) and the history page.
     func bonusHint() -> JSObject {
         let needed = VisitDeletionPolicy.minimumVisitsForDeletion
         return el("p", "hint",
@@ -23,7 +23,7 @@ extension App {
         addButton.attr("aria-label", "Add café")
         addButton.on("click") { _ in self.navigate(to: .add) }
 
-        let screen = el("main", "screen", [header(title: "Cafés", trailing: addButton), bonusHint()])
+        let screen = el("main", "screen", [header(title: "Cafés", trailing: addButton)])
 
         let sorted = restaurants.sorted { $0.name.lowercased() < $1.name.lowercased() }
         guard !sorted.isEmpty else {
@@ -224,6 +224,7 @@ extension App {
         let restaurantVisits = visits(for: restaurant.id)
         let canDelete = VisitDeletionPolicy.canDeleteVisits(visitCount: restaurantVisits.count)
         _ = screen.appendChild!(el("h2", text: "Visits (\(restaurantVisits.count))"))
+        _ = screen.appendChild!(bonusHint())
         if !canDelete {
             let needed = VisitDeletionPolicy.minimumVisitsForDeletion
             _ = screen.appendChild!(el("p", "hint",
