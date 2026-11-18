@@ -360,8 +360,10 @@ extension App {
             _ = screen.appendChild!(el("p", "empty", text: "No visits yet. Check in at a café to start your history."))
             return screen
         }
+        let needed = VisitDeletionPolicy.minimumVisitsForDeletion
         _ = screen.appendChild!(el("p", "hint",
-            text: "Swipe a visit to the left to delete it. This unlocks per café once it has \(VisitDeletionPolicy.minimumVisitsForDeletion) visits."))
+            text: "Present Your \(needed) visits to the shop owner and then make him view You swiping to delete Your stored data. "
+                + "So he knows You deserve the bonus and You are ready for the next \(needed) visits."))
         _ = screen.appendChild!(visitList(all, canDelete: nil, showRestaurantName: true))
         return screen
     }
