@@ -277,13 +277,11 @@ extension App {
                 }
             }
         }
+        // Camera only: no "choose from library" option, so every photo is taken during the visit.
         let cameraInput = makeImageInput(useCamera: true, onFile: handleFile)
-        let libraryInput = makeImageInput(useCamera: false, onFile: handleFile)
         let takePhoto = el("button", "secondary", text: "Take photo")
         takePhoto.on("click") { _ in _ = cameraInput.click!() }
-        let choosePhoto = el("button", "secondary", text: "Choose photo")
-        choosePhoto.on("click") { _ in _ = libraryInput.click!() }
-        let photoButtons = el("div", "button-row", [takePhoto, choosePhoto, cameraInput, libraryInput])
+        let photoButtons = el("div", "button-row", [takePhoto, cameraInput])
 
         // Rating
         let ratingRow = el("div", "rating")

@@ -5,7 +5,7 @@ A reduced web version of the CafeTasse iOS app, written in Swift and compiled to
 **Live:** https://ulix577.github.io/cafetassewebapp/
 
 - Café list and "add café" form
-- Café detail with check-in (browser geolocation distance check) and photo (camera or library)
+- Café detail with check-in (browser geolocation distance check) and photo (taken with the camera; no library picker)
 - Visit history; swipe-to-delete unlocks per café once it has at least 10 visits
 
 All data stays in the visitor's browser (IndexedDB). There is no server.
