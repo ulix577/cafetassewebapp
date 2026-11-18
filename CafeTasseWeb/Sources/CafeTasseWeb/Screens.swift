@@ -19,20 +19,36 @@ extension App {
     // MARK: - Café list
 
     func listScreen() -> JSObject {
+        let ordered = orderedRestaurants()
+
         let addButton = el("button", "icon-button", text: "+")
         addButton.attr("aria-label", "Add café")
         addButton.on("click") { _ in self.navigate(to: .add) }
 
-        let screen = el("main", "screen", [header(title: "Cafés", trailing: addButton)])
+        // "Edit" turns the rows into a selection list for moving and deleting.
+        var trailing: JSObject = addButton
+        if !ordered.isEmpty {
+            let editButton = el("button", "link", text: isEditingList ? "Done" : "Edit")
+            editButton.on("click") { _ in
+                self.isEditingList.toggle()
+                self.selectedRestaurantIDs = []
+                self.render()
+            }
+            trailing = el("div", "header-actions", isEditingList ? [editButton] : [editButton, addButton])
+        }
 
-        let sorted = restaurants.sorted { $0.name.lowercased() < $1.name.lowercased() }
-        guard !sorted.isEmpty else {
+        let screen = el("main", isEditingList ? "screen editing" : "screen",
+                        [header(title: "Cafés", trailing: trailing)])
+        guard !ordered.isEmpty else {
             _ = screen.appendChild!(el("p", "empty", text: "No cafés yet. Tap + to add the one you're in."))
             return screen
         }
+        if isEditingList {
+            _ = screen.appendChild!(el("p", "hint", text: "Select cafés, then move them up or down, or delete them."))
+        }
 
         let list = el("div", "list")
-        for restaurant in sorted {
+        for restaurant in ordered {
             let restaurantVisits = visits(for: restaurant.id)
             let title = el("div", "row-title", text: restaurant.name)
             let subtitle = el("div", "row-subtitle", text: [restaurant.typ, restaurant.adress]
@@ -40,13 +56,41 @@ extension App {
             let info = restaurantVisits.isEmpty
                 ? "No visits yet"
                 : "\(restaurantVisits.count) visit\(restaurantVisits.count == 1 ? "" : "s")  \(stars(restaurantVisits.averageRating))"
-            let meta = el("div", "row-meta", text: info)
+            let text = el("div", "row-text", [title, subtitle, el("div", "row-meta", text: info)])
 
-            let row = el("button", "card", [title, subtitle, meta])
-            row.on("click") { _ in self.navigate(to: .detail(restaurant.id)) }
-            _ = list.appendChild!(row)
+            if isEditingList {
+                let isSelected = selectedRestaurantIDs.contains(restaurant.id)
+                let check = el("span", isSelected ? "check on" : "check", text: isSelected ? "✓" : "")
+                let row = el("button", isSelected ? "card selectable selected" : "card selectable", [check, text])
+                row.attr("aria-pressed", isSelected ? "true" : "false")
+                row.on("click") { _ in
+                    if isSelected {
+                        self.selectedRestaurantIDs.remove(restaurant.id)
+                    } else {
+                        self.selectedRestaurantIDs.insert(restaurant.id)
+                    }
+                    self.render()
+                }
+                _ = list.appendChild!(row)
+            } else {
+                let row = el("button", "card", [text])
+                row.on("click") { _ in self.navigate(to: .detail(restaurant.id)) }
+                _ = list.appendChild!(row)
+            }
         }
         _ = screen.appendChild!(list)
+
+        if isEditingList {
+            let count = selectedRestaurantIDs.count
+            let up = el("button", "action", text: "▲ Up")
+            let down = el("button", "action", text: "▼ Down")
+            let delete = el("button", "action danger", text: count > 0 ? "Delete (\(count))" : "Delete")
+            for button in [up, down, delete] where count == 0 { button.disabled = .boolean(true) }
+            up.on("click") { _ in self.moveSelectedRestaurants(up: true) }
+            down.on("click") { _ in self.moveSelectedRestaurants(up: false) }
+            delete.on("click") { _ in self.deleteSelectedRestaurants() }
+            _ = screen.appendChild!(el("div", "action-bar", [up, down, delete]))
+        }
         return screen
     }
 

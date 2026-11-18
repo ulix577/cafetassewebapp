@@ -52,3 +52,13 @@ input[type=text], input[type=number], select, textarea { width: 100%; padding: .
 .camera-spacer { min-width: 4.5rem; }
 .shutter { width: 4.5rem; height: 4.5rem; border-radius: 50%; border: 4px solid #fff; background: #fff; box-shadow: inset 0 0 0 4px #000; }
 .shutter:active { background: #ccc; }
+.header-actions { display: flex; align-items: center; gap: .9rem; }
+.card.selectable { display: flex; align-items: center; gap: .8rem; }
+.card.selectable.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--card)); }
+.card .row-text { flex: 1; min-width: 0; }
+.check { flex: none; width: 1.6rem; height: 1.6rem; border-radius: 50%; border: 2px solid var(--muted); display: flex; align-items: center; justify-content: center; font-size: 1rem; line-height: 1; }
+.check.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.screen.editing { padding-bottom: 6rem; }
+.action-bar { position: fixed; left: 0; right: 0; bottom: calc(3.4rem + env(safe-area-inset-bottom)); max-width: 640px; margin: 0 auto; display: flex; gap: .5rem; padding: .6rem 1rem; background: var(--bg); border-top: 1px solid var(--border); z-index: 4; }
+.action { flex: 1; padding: .7rem .5rem; border-radius: .6rem; border: 1px solid var(--accent); background: transparent; color: var(--accent); font-weight: 600; }
+.action.danger { border-color: var(--danger); color: var(--danger); }

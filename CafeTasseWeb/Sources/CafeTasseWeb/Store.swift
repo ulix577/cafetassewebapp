@@ -65,6 +65,28 @@ final class Store {
         try await put(visit, id: visit.id, in: Name.visits)
     }
 
+    /// Saves several cafés in one transaction (used when the list order changes).
+    func saveAll(_ restaurants: [RestaurantDTO]) async throws {
+        guard !restaurants.isEmpty else { return }
+        let transaction = database.transaction!(Name.restaurants, "readwrite").object!
+        let store = transaction.objectStore!(Name.restaurants).object!
+        for restaurant in restaurants {
+            let json = String(decoding: try encoder.encode(restaurant), as: UTF8.self)
+            _ = store.put!(json, restaurant.id.uuidString)
+        }
+        try await completion(of: transaction)
+    }
+
+    /// Deletes cafés together with all their visits, atomically.
+    func deleteRestaurants(ids: [UUID], visitIDs: [UUID]) async throws {
+        let transaction = database.transaction!([Name.restaurants, Name.visits], "readwrite").object!
+        let restaurantStore = transaction.objectStore!(Name.restaurants).object!
+        let visitStore = transaction.objectStore!(Name.visits).object!
+        for id in ids { _ = restaurantStore.delete!(id.uuidString) }
+        for id in visitIDs { _ = visitStore.delete!(id.uuidString) }
+        try await completion(of: transaction)
+    }
+
     func deleteVisit(id: UUID) async throws {
         let transaction = database.transaction!(Name.visits, "readwrite").object!
         let store = transaction.objectStore!(Name.visits).object!

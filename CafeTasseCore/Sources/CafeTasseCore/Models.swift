@@ -17,6 +17,8 @@ public struct RestaurantDTO: Codable, Equatable, Identifiable, Sendable {
     public var isFavorite: Bool
     public var latitude: Double?
     public var longitude: Double?
+    /// Position in the user's café list. Optional so data saved before ordering existed still decodes.
+    public var sortOrder: Int?
 
     public init(
         id: UUID = UUID(),
@@ -28,7 +30,8 @@ public struct RestaurantDTO: Codable, Equatable, Identifiable, Sendable {
         timestamp: Date = Date(),
         isFavorite: Bool = false,
         latitude: Double? = nil,
-        longitude: Double? = nil
+        longitude: Double? = nil,
+        sortOrder: Int? = nil
     ) {
         self.id = id
         self.typ = typ
@@ -40,6 +43,7 @@ public struct RestaurantDTO: Codable, Equatable, Identifiable, Sendable {
         self.isFavorite = isFavorite
         self.latitude = latitude
         self.longitude = longitude
+        self.sortOrder = sortOrder
     }
 
     public var coordinate: Coordinate? {

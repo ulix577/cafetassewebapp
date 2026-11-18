@@ -4,7 +4,7 @@ A reduced web version of the CafeTasse iOS app, written in Swift and compiled to
 
 **Live:** https://ulix577.github.io/cafetassewebapp/
 
-- Café list and "add café" form
+- Café list with an Edit mode (select cafés, move them up or down, or delete them) and an "add café" form
 - Café detail with check-in (browser geolocation distance check) and photo (live in-page camera only: no file or gallery picker)
 - Visit history; swipe-to-delete unlocks per café once it has at least 10 visits
 

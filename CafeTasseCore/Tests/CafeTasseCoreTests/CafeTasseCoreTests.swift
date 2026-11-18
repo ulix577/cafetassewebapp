@@ -194,3 +194,63 @@ struct GeocodingResponseTests {
         #expect(place?.displayName == "")
     }
 }
+
+@Suite("ListOrder")
+struct ListOrderTests {
+    private let items = ["a", "b", "c", "d", "e"]
+
+    @Test func moveUpSingle() {
+        #expect(ListOrder.moveUp(["c"], in: items) == ["a", "c", "b", "d", "e"])
+    }
+
+    @Test func moveDownSingle() {
+        #expect(ListOrder.moveDown(["c"], in: items) == ["a", "b", "d", "c", "e"])
+    }
+
+    @Test func firstItemCannotMoveUpAndLastCannotMoveDown() {
+        #expect(ListOrder.moveUp(["a"], in: items) == items)
+        #expect(ListOrder.moveDown(["e"], in: items) == items)
+    }
+
+    @Test func selectedBlockKeepsOrderAndMovesTogether() {
+        #expect(ListOrder.moveUp(["c", "d"], in: items) == ["a", "c", "d", "b", "e"])
+        #expect(ListOrder.moveDown(["b", "c"], in: items) == ["a", "d", "b", "c", "e"])
+    }
+
+    @Test func blockAtTheEdgeStaysPut() {
+        #expect(ListOrder.moveUp(["a", "b"], in: items) == items)
+        #expect(ListOrder.moveDown(["d", "e"], in: items) == items)
+    }
+
+    @Test func separateSelectionsEachMoveOneStep() {
+        #expect(ListOrder.moveUp(["b", "d"], in: items) == ["b", "a", "d", "c", "e"])
+        #expect(ListOrder.moveDown(["b", "d"], in: items) == ["a", "c", "b", "e", "d"])
+    }
+
+    @Test func emptySelectionAndTinyListsAreUnchanged() {
+        #expect(ListOrder.moveUp([], in: items) == items)
+        #expect(ListOrder.moveDown(["x"], in: [String]()) == [])
+        #expect(ListOrder.moveUp(["a"], in: ["a"]) == ["a"])
+    }
+
+    @Test func movingBackAndForthRestoresOrder() {
+        let up = ListOrder.moveUp(["c"], in: items)
+        #expect(ListOrder.moveDown(["c"], in: up) == items)
+    }
+}
+
+@Suite("Legacy data")
+struct LegacyDataTests {
+    @Test func restaurantWithoutSortOrderStillDecodes() throws {
+        // Saved by an earlier version of the web app, before the sortOrder field existed.
+        let json = """
+        {"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","typ":"Café","name":"Old","adress":"","rating":0,
+         "comment":"","timestamp":"2026-01-01T10:00:00Z","isFavorite":false}
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let restaurant = try decoder.decode(RestaurantDTO.self, from: Data(json.utf8))
+        #expect(restaurant.name == "Old")
+        #expect(restaurant.sortOrder == nil)
+    }
+}

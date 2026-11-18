@@ -37,6 +37,9 @@ final class App {
     var visits: [VisitDTO] = []
     var route: Route = .list
     var draft = CheckInDraft()
+    /// Café list "Edit" mode: rows become selectable for moving and deleting.
+    var isEditingList = false
+    var selectedRestaurantIDs: Set<UUID> = []
 
     init(root: JSObject, store: Store) {
         self.root = root
@@ -50,10 +53,15 @@ final class App {
         } catch {
             showNotice(describe(error), isError: true)
         }
+        await normalizeOrder()
         render()
     }
 
     func navigate(to route: Route) {
+        if route != .list {
+            isEditingList = false
+            selectedRestaurantIDs = []
+        }
         self.route = route
         render()
         _ = JSObject.global.window.object!.scrollTo!(0, 0)
@@ -65,11 +73,87 @@ final class App {
         restaurants.first { $0.id == id }
     }
 
+    /// Cafés in the user's order. Cafés without a stored position (data from before ordering existed)
+    /// come last, alphabetically.
+    func orderedRestaurants() -> [RestaurantDTO] {
+        restaurants.sorted {
+            ($0.sortOrder ?? Int.max, $0.name.lowercased()) < ($1.sortOrder ?? Int.max, $1.name.lowercased())
+        }
+    }
+
+    /// Gives every café a stored position, keeping the order the list currently shows.
+    private func normalizeOrder() async {
+        guard restaurants.contains(where: { $0.sortOrder == nil }) else { return }
+        await saveChanged(setOrder(orderedRestaurants().map(\.id)))
+    }
+
+    /// Updates `sortOrder` in memory to match `ids`; returns the cafés whose position changed.
+    private func setOrder(_ ids: [UUID]) -> [RestaurantDTO] {
+        var changed: [RestaurantDTO] = []
+        for (position, id) in ids.enumerated() {
+            guard let index = restaurants.firstIndex(where: { $0.id == id }),
+                  restaurants[index].sortOrder != position else { continue }
+            restaurants[index].sortOrder = position
+            changed.append(restaurants[index])
+        }
+        return changed
+    }
+
+    private func saveChanged(_ changed: [RestaurantDTO]) async {
+        do {
+            try await store.saveAll(changed)
+        } catch {
+            showNotice(describe(error), isError: true)
+        }
+    }
+
+    /// Moves the selected cafés one step up or down and stores the new order.
+    func moveSelectedRestaurants(up: Bool) {
+        let ids = orderedRestaurants().map(\.id)
+        let moved = up
+            ? ListOrder.moveUp(selectedRestaurantIDs, in: ids)
+            : ListOrder.moveDown(selectedRestaurantIDs, in: ids)
+        guard moved != ids else { return }
+        let changed = setOrder(moved)
+        render()
+        Task { await saveChanged(changed) }
+    }
+
+    /// Deletes the selected cafés and, with them, all of their visits.
+    func deleteSelectedRestaurants() {
+        let selected = selectedRestaurantIDs
+        guard !selected.isEmpty else { return }
+        let visitIDs = visits.filter { selected.contains($0.restaurantID) }.map(\.id)
+        let cafes = selected.count == 1 ? "1 café" : "\(selected.count) cafés"
+        let visitText = visitIDs.count == 1 ? "its 1 visit" : "their \(visitIDs.count) visits"
+        guard confirmInBrowser("Delete \(cafes) and \(visitText)? This cannot be undone.") else { return }
+        Task {
+            do {
+                try await store.deleteRestaurants(ids: Array(selected), visitIDs: visitIDs)
+                restaurants.removeAll { selected.contains($0.id) }
+                visits.removeAll { selected.contains($0.restaurantID) }
+                selectedRestaurantIDs = []
+                isEditingList = false
+                // Close the gaps so positions stay 0, 1, 2, ...
+                await saveChanged(setOrder(orderedRestaurants().map(\.id)))
+            } catch {
+                showNotice(describe(error), isError: true)
+            }
+            render()
+        }
+    }
+
     func visits(for restaurantID: UUID) -> [VisitDTO] {
         visits.filter { $0.restaurantID == restaurantID }.sorted { $0.date > $1.date }
     }
 
     func persist(_ restaurant: RestaurantDTO) async {
+        var restaurant = restaurant
+        let isNew = !restaurants.contains { $0.id == restaurant.id }
+        if isNew && restaurant.sortOrder == nil {
+            // New cafés go to the end of the list.
+            restaurant.sortOrder = (restaurants.compactMap(\.sortOrder).max() ?? -1) + 1
+        }
         do {
             try await store.save(restaurant)
             if let index = restaurants.firstIndex(where: { $0.id == restaurant.id }) {
