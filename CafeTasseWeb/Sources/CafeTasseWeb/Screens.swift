@@ -362,8 +362,8 @@ extension App {
         }
         let needed = VisitDeletionPolicy.minimumVisitsForDeletion
         _ = screen.appendChild!(el("p", "hint",
-            text: "Present Your \(needed) visits to the shop owner and then make him view You swiping to delete Your stored data. "
-                + "So he knows You deserve the bonus and You are ready for the next \(needed) visits."))
+            text: "Show the shop owner your \(needed) visits, then swipe to reset while they watch. "
+                + "Enjoy your bonus, and start collecting again!"))
         _ = screen.appendChild!(visitList(all, canDelete: nil, showRestaurantName: true))
         return screen
     }
