@@ -6,9 +6,10 @@ import Foundation
 #endif
 import JavaScriptKit
 
-/// Browsers report GPS positions far less precisely than the 10 m default used in the iOS app,
-/// so the web app uses a larger check-in radius.
-let webCheckInRadius = 50.0
+/// Maximum distance in meters between guest and café for a check-in. Same as the iOS default.
+/// Browser GPS is often less precise than this (phones outdoors: roughly 5-20 m, laptops: much worse),
+/// so guests may be told they are "too far away" while standing in the café; raise it if that happens.
+let webCheckInRadius = 10.0
 
 enum Route: Equatable {
     case list

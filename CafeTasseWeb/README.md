@@ -56,8 +56,8 @@ Then open the HTTPS URL in Chrome on Android (or Safari on iPhone). Make sure th
 `.wasm` as `application/wasm` and compressed (all of the above do this by default).
 
 ## Notes
-- The web check-in radius is `webCheckInRadius` (50 m) in `App.swift`; the iOS default of 10 m is
-  too tight for browser GPS accuracy.
+- The web check-in radius is `webCheckInRadius` (10 m, same as the iOS default) in `App.swift`. Browser
+  GPS is often less precise than that, so check-ins can be refused near the café; raise it if needed.
 - The target imports `FoundationEssentials` (not `Foundation`) to avoid bundling ICU data: the release
   `.wasm` is about 18 MB (4.8 MB gzipped) instead of about 60 MB. Keep it that way: `trimmingCharacters`,
   `replacingOccurrences`, `range(of:)`, `LocalizedError` and `DateFormatter` are not available there.
