@@ -71,7 +71,8 @@ func confirmInBrowser(_ message: String) -> Bool {
 func showNotice(_ message: String, isError: Bool = false) {
     let toast = el("div", isError ? "toast error" : "toast", text: message)
     _ = document.body.object!.appendChild!(toast)
-    after(milliseconds: 4000) { _ = toast.remove!() }
+    // Roughly 60 ms per character so long messages stay readable (minimum 4 s).
+    after(milliseconds: max(4000, Double(message.count) * 60)) { _ = toast.remove!() }
 }
 
 /// Error text for the UI. `localizedDescription` lives in full Foundation, which this target avoids.

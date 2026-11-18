@@ -165,14 +165,19 @@ final class App {
         return image
     }
 
-    func message(for validation: CheckInValidation) -> String {
+    func message(for validation: CheckInValidation, accuracy: Double? = nil) -> String {
         switch validation {
         case .allowed:
             return "Ready to check in!"
         case .alreadyCheckedInToday(let date):
             return "Already checked in today at \(formatDate(date))."
         case .tooFarAway(let distance):
-            return "You're \(formatDistance(distance)) away. Get closer to check in (max \(Int(policy.radius)) m)."
+            var text = "You're \(formatDistance(distance)) away. Get closer to check in (max \(Int(policy.radius)) m)."
+            if policy.isAccuracyTooLow(accuracy), let accuracy {
+                text += " Your GPS is only accurate to about ±\(Int(accuracy.rounded())) m, so this may be a weak signal. "
+                    + "Try near a window or outside, then check in again."
+            }
+            return text
         case .noLocation:
             return "Location unavailable. Allow location access to check in."
         case .noRestaurantCoordinates:

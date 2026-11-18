@@ -229,10 +229,10 @@ extension App {
         button.disabled = .boolean(true)
         button.textContent = .string("Locating…")
         Task {
-            let user = try? await currentPosition()
+            let fix = try? await currentFix()
             let validation = policy.validate(
                 restaurantCoordinate: restaurant.coordinate,
-                userCoordinate: user,
+                userCoordinate: fix?.coordinate,
                 existingVisitDates: visits(for: restaurant.id).map(\.date),
                 now: Date(),
                 calendar: browserCalendar()
@@ -241,7 +241,7 @@ extension App {
                 draft = CheckInDraft()
                 navigate(to: .checkIn(restaurant.id))
             } else {
-                showNotice(message(for: validation), isError: true)
+                showNotice(message(for: validation, accuracy: fix?.accuracy), isError: true)
                 render()
             }
         }

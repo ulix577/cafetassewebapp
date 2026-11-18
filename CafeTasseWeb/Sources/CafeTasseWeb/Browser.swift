@@ -24,8 +24,19 @@ enum BrowserError: Error, CustomStringConvertible {
     }
 }
 
+/// A position fix with the error radius the device reports for it.
+struct UserPosition {
+    var coordinate: Coordinate
+    /// 68 % confidence radius in meters (`GeolocationCoordinates.accuracy`).
+    var accuracy: Double?
+}
+
 /// One-shot position request through the browser Geolocation API (needs HTTPS or localhost).
 func currentPosition() async throws -> Coordinate {
+    try await currentFix().coordinate
+}
+
+func currentFix() async throws -> UserPosition {
     try await withCheckedThrowingContinuation { continuation in
         guard let geolocation = JSObject.global.navigator.object?.geolocation.object else {
             continuation.resume(throwing: BrowserError.geolocationUnavailable)
@@ -38,9 +49,12 @@ func currentPosition() async throws -> Coordinate {
 
         let onSuccess = JSOneshotClosure { args in
             let coords = args[0].object!.coords.object!
-            continuation.resume(returning: Coordinate(
-                latitude: coords.latitude.number ?? 0,
-                longitude: coords.longitude.number ?? 0
+            continuation.resume(returning: UserPosition(
+                coordinate: Coordinate(
+                    latitude: coords.latitude.number ?? 0,
+                    longitude: coords.longitude.number ?? 0
+                ),
+                accuracy: coords.accuracy.number
             ))
             return .undefined
         }

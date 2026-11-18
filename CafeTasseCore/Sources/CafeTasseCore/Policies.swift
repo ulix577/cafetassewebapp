@@ -34,6 +34,13 @@ public struct CheckInPolicy: Equatable, Sendable {
         self.requiresLocation = requiresLocation
     }
 
+    /// True when the device reports a position error larger than the check-in radius. Then a
+    /// "too far away" result may just mean a weak GPS signal, and the guest should be told so.
+    public func isAccuracyTooLow(_ accuracy: Double?) -> Bool {
+        guard let accuracy, accuracy.isFinite, accuracy > 0 else { return false }
+        return accuracy > radius
+    }
+
     public func validate(
         restaurantCoordinate: Coordinate?,
         userCoordinate: Coordinate?,

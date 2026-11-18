@@ -98,6 +98,18 @@ struct CheckInPolicyTests {
         #expect(result == .allowed)
     }
 
+    @Test func accuracyIsTooLowOnlyWhenWorseThanRadius() {
+        let policy = CheckInPolicy(radius: 10)
+        #expect(policy.isAccuracyTooLow(35))
+        #expect(policy.isAccuracyTooLow(10.5))
+        #expect(!policy.isAccuracyTooLow(10))
+        #expect(!policy.isAccuracyTooLow(4))
+        #expect(!policy.isAccuracyTooLow(nil))
+        #expect(!policy.isAccuracyTooLow(0))
+        #expect(!policy.isAccuracyTooLow(.infinity))
+        #expect(!policy.isAccuracyTooLow(.nan))
+    }
+
     @Test func nonPositiveRadiusFallsBackToDefault() {
         #expect(CheckInPolicy(radius: 0).radius == CheckInPolicy.defaultRadius)
         #expect(CheckInPolicy(radius: -5).radius == CheckInPolicy.defaultRadius)
